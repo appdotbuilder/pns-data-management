@@ -1,59 +1,90 @@
 
-import { type CreateRiwayatJabatanInput, type UpdateRiwayatJabatanInput, type RiwayatJabatan } from '../schema';
+import { db } from '../db';
+import { riwayatJabatanTable, pegawaiTable } from '../db/schema';
+import { type CreateRiwayatJabatanInput, type RiwayatJabatan } from '../schema';
+import { eq, desc } from 'drizzle-orm';
 
-export async function createRiwayatJabatan(input: CreateRiwayatJabatanInput): Promise<RiwayatJabatan> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to create a new job position history record for a civil servant.
-  // This tracks all positions held by the employee over time.
-  return {
-    id: 1,
-    pegawai_id: input.pegawai_id,
-    satuan_kerja: input.satuan_kerja,
-    unit_kerja: input.unit_kerja,
-    jabatan_utama: input.jabatan_utama,
-    jabatan_tambahan: input.jabatan_tambahan || null,
-    tmt_jabatan: input.tmt_jabatan,
-    tmt_jabatan_tambahan: input.tmt_jabatan_tambahan || null,
-    created_at: new Date(),
-    updated_at: new Date()
-  };
-}
+export const createRiwayatJabatan = async (input: CreateRiwayatJabatanInput): Promise<RiwayatJabatan> => {
+  try {
+    // Verify pegawai exists before creating riwayat jabatan
+    const pegawaiExists = await db.select({ id: pegawaiTable.id })
+      .from(pegawaiTable)
+      .where(eq(pegawaiTable.id, input.pegawai_id))
+      .execute();
 
-export async function getRiwayatJabatanByPegawai(pegawaiId: number): Promise<RiwayatJabatan[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch all job position history records for a specific employee.
-  // Records should be ordered by TMT Jabatan (descending) to show most recent positions first.
-  return [];
-}
+    if (pegawaiExists.length === 0) {
+      throw new Error(`Pegawai with ID ${input.pegawai_id} not found`);
+    }
 
-export async function updateRiwayatJabatan(input: UpdateRiwayatJabatanInput): Promise<RiwayatJabatan> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to update an existing job position history record.
-  // Only admins should be able to modify job history records.
-  return {
-    id: input.id,
-    pegawai_id: 1,
-    satuan_kerja: input.satuan_kerja || 'Updated Satuan Kerja',
-    unit_kerja: input.unit_kerja || 'Updated Unit Kerja',
-    jabatan_utama: input.jabatan_utama || 'Updated Jabatan',
-    jabatan_tambahan: input.jabatan_tambahan || null,
-    tmt_jabatan: input.tmt_jabatan || new Date(),
-    tmt_jabatan_tambahan: input.tmt_jabatan_tambahan || null,
-    created_at: new Date(),
-    updated_at: new Date()
-  };
-}
+    // Insert riwayat jabatan record
+    const result = await db.insert(riwayatJabatanTable)
+      .values({
+        pegawai_id: input.pegawai_id,
+        jabatan: input.jabatan,
+        unit_kerja: input.unit_kerja,
+        tmt_jabatan: input.tmt_jabatan,
+        tmt_berakhir: input.tmt_berakhir || null,
+        keterangan: input.keterangan || null
+      })
+      .returning()
+      .execute();
 
-export async function deleteRiwayatJabatan(id: number): Promise<{ success: boolean }> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to delete a job position history record.
-  // Only admins should be able to delete job history records.
-  return { success: true };
-}
+    return result[0];
+  } catch (error) {
+    console.error('Riwayat jabatan creation failed:', error);
+    throw error;
+  }
+};
 
-export async function getCurrentJabatan(pegawaiId: number): Promise<RiwayatJabatan | null> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to get the current/latest job position for an employee.
-  // This should return the record with the most recent TMT Jabatan.
-  return null;
-}
+export const getRiwayatJabatanByPegawai = async (pegawaiId: number): Promise<RiwayatJabatan[]> => {
+  try {
+    // Verify pegawai exists
+    const pegawaiExists = await db.select({ id: pegawaiTable.id })
+      .from(pegawaiTable)
+      .where(eq(pegawaiTable.id, pegawaiId))
+      .execute();
+
+    if (pegawaiExists.length === 0) {
+      throw new Error(`Pegawai with ID ${pegawaiId} not found`);
+    }
+
+    // Get all riwayat jabatan for the pegawai, ordered by TMT descending
+    const results = await db.select()
+      .from(riwayatJabatanTable)
+      .where(eq(riwayatJabatanTable.pegawai_id, pegawaiId))
+      .orderBy(desc(riwayatJabatanTable.tmt_jabatan))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Get riwayat jabatan failed:', error);
+    throw error;
+  }
+};
+
+export const getCurrentJabatan = async (pegawaiId: number): Promise<RiwayatJabatan | null> => {
+  try {
+    // Verify pegawai exists
+    const pegawaiExists = await db.select({ id: pegawaiTable.id })
+      .from(pegawaiTable)
+      .where(eq(pegawaiTable.id, pegawaiId))
+      .execute();
+
+    if (pegawaiExists.length === 0) {
+      throw new Error(`Pegawai with ID ${pegawaiId} not found`);
+    }
+
+    // Get the most recent riwayat jabatan (current position)
+    const results = await db.select()
+      .from(riwayatJabatanTable)
+      .where(eq(riwayatJabatanTable.pegawai_id, pegawaiId))
+      .orderBy(desc(riwayatJabatanTable.tmt_jabatan))
+      .limit(1)
+      .execute();
+
+    return results.length > 0 ? results[0] : null;
+  } catch (error) {
+    console.error('Get current jabatan failed:', error);
+    throw error;
+  }
+};

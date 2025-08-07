@@ -4,58 +4,31 @@ import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import 'dotenv/config';
 import cors from 'cors';
 import superjson from 'superjson';
-import { z } from 'zod';
 
 // Import schemas
-import {
-  loginInputSchema,
-  createPegawaiInputSchema,
-  updatePegawaiInputSchema,
-  pegawaiFilterSchema,
+import { 
+  createUserInputSchema,
+  createPegawaiInputSchema, 
+  getPegawaiByIdInputSchema,
   createRiwayatJabatanInputSchema,
-  updateRiwayatJabatanInputSchema,
   createMutasiInputSchema,
   updateMutasiStatusInputSchema,
-  mutasiFilterSchema,
   createPosisiTersediaInputSchema
 } from './schema';
 
 // Import handlers
-import { login, getCurrentUser } from './handlers/auth';
-import {
-  createPegawai,
-  getPegawaiList,
-  getPegawaiById,
-  updatePegawai,
-  deletePegawai,
-  getPegawaiMendekatiPensiun
-} from './handlers/pegawai';
-import {
-  createRiwayatJabatan,
-  getRiwayatJabatanByPegawai,
-  updateRiwayatJabatan,
-  deleteRiwayatJabatan,
-  getCurrentJabatan
-} from './handlers/riwayat_jabatan';
-import {
-  createMutasi,
-  getMutasiList,
-  updateMutasiStatus,
-  getMutasiById,
-  deleteMutasi
-} from './handlers/mutasi';
-import {
-  createPosisiTersedia,
-  getPosisiTersediaList,
-  updatePosisiTersedia,
-  deactivatePosisiTersedia
-} from './handlers/posisi_tersedia';
-import {
-  getProvinsi,
-  getKotaByProvinsi,
-  getKecamatanByKota,
-  getDesaByKecamatan
-} from './handlers/wilayah';
+import { createUser } from './handlers/create_user';
+import { createPegawai } from './handlers/create_pegawai';
+import { getPegawai } from './handlers/get_pegawai';
+import { getPegawaiById } from './handlers/get_pegawai_by_id';
+import { getPegawaiMendekatiPensiun } from './handlers/get_pegawai_mendekati_pensiun';
+import { createRiwayatJabatan } from './handlers/create_riwayat_jabatan';
+import { getRiwayatJabatanByPegawai } from './handlers/get_riwayat_jabatan_by_pegawai';
+import { createMutasi } from './handlers/create_mutasi';
+import { getMutasiPending } from './handlers/get_mutasi_pending';
+import { updateMutasiStatus } from './handlers/update_mutasi_status';
+import { createPosisiTersedia } from './handlers/create_posisi_tersedia';
+import { getPosisiTersedia } from './handlers/get_posisi_tersedia';
 
 const t = initTRPC.create({
   transformer: superjson,
@@ -65,40 +38,26 @@ const publicProcedure = t.procedure;
 const router = t.router;
 
 const appRouter = router({
-  // Health check
   healthcheck: publicProcedure.query(() => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }),
 
-  // Authentication routes
-  login: publicProcedure
-    .input(loginInputSchema)
-    .mutation(({ input }) => login(input)),
-  
-  getCurrentUser: publicProcedure
-    .input(z.number())
-    .query(({ input }) => getCurrentUser(input)),
+  // User routes
+  createUser: publicProcedure
+    .input(createUserInputSchema)
+    .mutation(({ input }) => createUser(input)),
 
   // Pegawai routes
   createPegawai: publicProcedure
     .input(createPegawaiInputSchema)
     .mutation(({ input }) => createPegawai(input)),
   
-  getPegawaiList: publicProcedure
-    .input(pegawaiFilterSchema)
-    .query(({ input }) => getPegawaiList(input)),
+  getPegawai: publicProcedure
+    .query(() => getPegawai()),
   
   getPegawaiById: publicProcedure
-    .input(z.number())
+    .input(getPegawaiByIdInputSchema)
     .query(({ input }) => getPegawaiById(input)),
-  
-  updatePegawai: publicProcedure
-    .input(updatePegawaiInputSchema)
-    .mutation(({ input }) => updatePegawai(input)),
-  
-  deletePegawai: publicProcedure
-    .input(z.number())
-    .mutation(({ input }) => deletePegawai(input)),
   
   getPegawaiMendekatiPensiun: publicProcedure
     .query(() => getPegawaiMendekatiPensiun()),
@@ -109,76 +68,28 @@ const appRouter = router({
     .mutation(({ input }) => createRiwayatJabatan(input)),
   
   getRiwayatJabatanByPegawai: publicProcedure
-    .input(z.number())
+    .input(getPegawaiByIdInputSchema)
     .query(({ input }) => getRiwayatJabatanByPegawai(input)),
-  
-  updateRiwayatJabatan: publicProcedure
-    .input(updateRiwayatJabatanInputSchema)
-    .mutation(({ input }) => updateRiwayatJabatan(input)),
-  
-  deleteRiwayatJabatan: publicProcedure
-    .input(z.number())
-    .mutation(({ input }) => deleteRiwayatJabatan(input)),
-  
-  getCurrentJabatan: publicProcedure
-    .input(z.number())
-    .query(({ input }) => getCurrentJabatan(input)),
 
   // Mutasi routes
   createMutasi: publicProcedure
     .input(createMutasiInputSchema)
     .mutation(({ input }) => createMutasi(input)),
   
-  getMutasiList: publicProcedure
-    .input(mutasiFilterSchema)
-    .query(({ input }) => getMutasiList(input)),
+  getMutasiPending: publicProcedure
+    .query(() => getMutasiPending()),
   
   updateMutasiStatus: publicProcedure
     .input(updateMutasiStatusInputSchema)
     .mutation(({ input }) => updateMutasiStatus(input)),
-  
-  getMutasiById: publicProcedure
-    .input(z.number())
-    .query(({ input }) => getMutasiById(input)),
-  
-  deleteMutasi: publicProcedure
-    .input(z.number())
-    .mutation(({ input }) => deleteMutasi(input)),
 
   // Posisi Tersedia routes
   createPosisiTersedia: publicProcedure
     .input(createPosisiTersediaInputSchema)
     .mutation(({ input }) => createPosisiTersedia(input)),
   
-  getPosisiTersediaList: publicProcedure
-    .query(() => getPosisiTersediaList()),
-  
-  updatePosisiTersedia: publicProcedure
-    .input(z.object({
-      id: z.number(),
-      data: createPosisiTersediaInputSchema.partial()
-    }))
-    .mutation(({ input }) => updatePosisiTersedia(input.id, input.data)),
-  
-  deactivatePosisiTersedia: publicProcedure
-    .input(z.number())
-    .mutation(({ input }) => deactivatePosisiTersedia(input)),
-
-  // Wilayah routes (for address integration)
-  getProvinsi: publicProcedure
-    .query(() => getProvinsi()),
-  
-  getKotaByProvinsi: publicProcedure
-    .input(z.string())
-    .query(({ input }) => getKotaByProvinsi(input)),
-  
-  getKecamatanByKota: publicProcedure
-    .input(z.string())
-    .query(({ input }) => getKecamatanByKota(input)),
-  
-  getDesaByKecamatan: publicProcedure
-    .input(z.string())
-    .query(({ input }) => getDesaByKecamatan(input)),
+  getPosisiTersedia: publicProcedure
+    .query(() => getPosisiTersedia()),
 });
 
 export type AppRouter = typeof appRouter;

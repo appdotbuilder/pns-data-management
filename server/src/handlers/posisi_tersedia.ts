@@ -1,58 +1,95 @@
 
+import { db } from '../db';
+import { posisiTersediaTable } from '../db/schema';
 import { type CreatePosisiTersediaInput, type PosisiTersedia } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function createPosisiTersedia(input: CreatePosisiTersediaInput): Promise<PosisiTersedia> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to create a new available position record.
-  // Only admins should be able to create available positions.
-  return {
-    id: 1,
-    satuan_kerja: input.satuan_kerja,
-    unit_kerja: input.unit_kerja,
-    jabatan: input.jabatan,
-    kuota_tersedia: input.kuota_tersedia,
-    persyaratan: input.persyaratan,
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date()
-  };
+  try {
+    const result = await db.insert(posisiTersediaTable)
+      .values({
+        nama_posisi: input.nama_posisi,
+        unit_kerja: input.unit_kerja,
+        deskripsi: input.deskripsi ?? null,
+        persyaratan: input.persyaratan ?? null,
+        is_available: input.is_available
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Failed to create posisi tersedia:', error);
+    throw error;
+  }
 }
 
 export async function getPosisiTersediaList(): Promise<PosisiTersedia[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch all active available positions.
-  // This is used by employees to see what positions they can apply for mutation.
-  // Only show positions with kuota_tersedia > 0 and is_active = true.
-  return [];
+  try {
+    const results = await db.select()
+      .from(posisiTersediaTable)
+      .where(eq(posisiTersediaTable.is_available, true))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch posisi tersedia list:', error);
+    throw error;
+  }
 }
 
 export async function updatePosisiTersedia(id: number, input: Partial<CreatePosisiTersediaInput>): Promise<PosisiTersedia> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to update available position details.
-  // Only admins should be able to update position information.
-  return {
-    id: id,
-    satuan_kerja: input.satuan_kerja || 'Updated Satuan Kerja',
-    unit_kerja: input.unit_kerja || 'Updated Unit Kerja',
-    jabatan: input.jabatan || 'Updated Jabatan',
-    kuota_tersedia: input.kuota_tersedia || 1,
-    persyaratan: input.persyaratan || 'Updated requirements',
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date()
-  };
+  try {
+    const updateData: any = {};
+    
+    if (input.nama_posisi !== undefined) {
+      updateData.nama_posisi = input.nama_posisi;
+    }
+    if (input.unit_kerja !== undefined) {
+      updateData.unit_kerja = input.unit_kerja;
+    }
+    if (input.deskripsi !== undefined) {
+      updateData.deskripsi = input.deskripsi ?? null;
+    }
+    if (input.persyaratan !== undefined) {
+      updateData.persyaratan = input.persyaratan ?? null;
+    }
+    if (input.is_available !== undefined) {
+      updateData.is_available = input.is_available;
+    }
+
+    const result = await db.update(posisiTersediaTable)
+      .set(updateData)
+      .where(eq(posisiTersediaTable.id, id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Posisi tersedia with id ${id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Failed to update posisi tersedia:', error);
+    throw error;
+  }
 }
 
 export async function deactivatePosisiTersedia(id: number): Promise<{ success: boolean }> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to deactivate an available position.
-  // This sets is_active = false instead of deleting the record.
-  return { success: true };
-}
+  try {
+    const result = await db.update(posisiTersediaTable)
+      .set({ is_available: false })
+      .where(eq(posisiTersediaTable.id, id))
+      .returning()
+      .execute();
 
-export async function reduceKuotaPosisi(id: number): Promise<{ success: boolean }> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to reduce available quota when a mutation is approved.
-  // This is called internally when a mutation request is approved.
-  return { success: true };
+    if (result.length === 0) {
+      throw new Error(`Posisi tersedia with id ${id} not found`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to deactivate posisi tersedia:', error);
+    throw error;
+  }
 }

@@ -1,43 +1,66 @@
 
-import { type WilayahItem } from '../schema';
+import { z } from 'zod';
+
+// Define the WilayahItem type locally since it's not in schema.ts
+export const wilayahItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export type WilayahItem = z.infer<typeof wilayahItemSchema>;
+
+const BASE_URL = 'https://wilayah.id/api';
+
+async function fetchFromWilayahAPI(endpoint: string): Promise<WilayahItem[]> {
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data: unknown = await response.json();
+    
+    // Type guard to ensure data is an array
+    if (!Array.isArray(data)) {
+      throw new Error('Invalid response format: expected array');
+    }
+    
+    // Transform the API response to match our WilayahItem interface
+    return data.map((item: any) => ({
+      id: item.code || item.id,
+      name: item.name
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch from wilayah API (${endpoint}):`, error);
+    throw error;
+  }
+}
 
 export async function getProvinsi(): Promise<WilayahItem[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch all provinces from wilayah.id API.
-  // This integrates with external API: https://wilayah.id/api/provinces.json
-  return [
-    { id: '11', name: 'DKI Jakarta' },
-    { id: '32', name: 'Jawa Barat' },
-    { id: '33', name: 'Jawa Tengah' }
-  ];
+  return await fetchFromWilayahAPI('/provinces.json');
 }
 
 export async function getKotaByProvinsi(provinsiId: string): Promise<WilayahItem[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch cities/regencies by province ID from wilayah.id API.
-  // API endpoint: https://wilayah.id/api/regencies/{provinceId}.json
-  return [
-    { id: '1101', name: 'Jakarta Pusat' },
-    { id: '1102', name: 'Jakarta Utara' }
-  ];
+  if (!provinsiId || provinsiId.trim() === '') {
+    throw new Error('Province ID is required');
+  }
+  
+  return await fetchFromWilayahAPI(`/regencies/${provinsiId}.json`);
 }
 
 export async function getKecamatanByKota(kotaId: string): Promise<WilayahItem[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch districts by city/regency ID from wilayah.id API.
-  // API endpoint: https://wilayah.id/api/districts/{regencyId}.json
-  return [
-    { id: '110101', name: 'Gambir' },
-    { id: '110102', name: 'Sawah Besar' }
-  ];
+  if (!kotaId || kotaId.trim() === '') {
+    throw new Error('City ID is required');
+  }
+  
+  return await fetchFromWilayahAPI(`/districts/${kotaId}.json`);
 }
 
 export async function getDesaByKecamatan(kecamatanId: string): Promise<WilayahItem[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch villages by district ID from wilayah.id API.
-  // API endpoint: https://wilayah.id/api/villages/{districtId}.json
-  return [
-    { id: '1101011001', name: 'Gambir' },
-    { id: '1101011002', name: 'Kebon Kelapa' }
-  ];
+  if (!kecamatanId || kecamatanId.trim() === '') {
+    throw new Error('District ID is required');
+  }
+  
+  return await fetchFromWilayahAPI(`/villages/${kecamatanId}.json`);
 }

@@ -2,10 +2,10 @@
 import { db } from '../db';
 import { pegawaiTable } from '../db/schema';
 import { type CreatePegawaiInput, type Pegawai } from '../schema';
-import { eq } from 'drizzle-orm';
 
 export const createPegawai = async (input: CreatePegawaiInput): Promise<Pegawai> => {
   try {
+    // Insert pegawai record
     const result = await db.insert(pegawaiTable)
       .values({
         nip: input.nip,
@@ -27,20 +27,6 @@ export const createPegawai = async (input: CreatePegawaiInput): Promise<Pegawai>
     return result[0];
   } catch (error) {
     console.error('Pegawai creation failed:', error);
-    throw error;
-  }
-};
-
-export const getPegawaiById = async (id: number): Promise<Pegawai | null> => {
-  try {
-    const result = await db.select()
-      .from(pegawaiTable)
-      .where(eq(pegawaiTable.id, id))
-      .execute();
-
-    return result.length > 0 ? result[0] : null;
-  } catch (error) {
-    console.error('Get pegawai by ID failed:', error);
     throw error;
   }
 };
