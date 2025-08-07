@@ -1,91 +1,88 @@
 
-import { 
-  serial, 
-  text, 
-  pgTable, 
-  timestamp, 
-  integer, 
-  varchar,
-  pgEnum,
-  boolean
-} from 'drizzle-orm/pg-core';
+import { serial, text, pgTable, timestamp, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const userRoleEnum = pgEnum('user_role', ['admin', 'user']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'pegawai']);
+export const golonganDarahEnum = pgEnum('golongan_darah', ['A', 'B', 'AB', 'O']);
+export const pendidikanEnum = pgEnum('pendidikan', ['SD', 'SMP', 'SMA', 'D3', 'S1', 'S2', 'S3']);
 export const statusMutasiEnum = pgEnum('status_mutasi', ['pending', 'approved', 'rejected']);
 
 // Users table
 export const usersTable = pgTable('users', {
   id: serial('id').primaryKey(),
-  username: varchar('username', { length: 50 }).notNull().unique(),
-  email: varchar('email', { length: 100 }).notNull().unique(),
-  password_hash: text('password_hash').notNull(),
-  role: userRoleEnum('role').notNull().default('user'),
-  pegawai_id: integer('pegawai_id').references(() => pegawaiTable.id, { onDelete: 'set null' }),
+  username: text('username').notNull().unique(),
+  password: text('password').notNull(),
+  role: userRoleEnum('role').notNull(),
+  pegawai_id: integer('pegawai_id'),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Pegawai table
+// Pegawai (Civil Servants) table
 export const pegawaiTable = pgTable('pegawai', {
   id: serial('id').primaryKey(),
-  nip: varchar('nip', { length: 20 }).notNull().unique(),
-  nama: varchar('nama', { length: 100 }).notNull(),
-  email: varchar('email', { length: 100 }).notNull(),
-  telepon: varchar('telepon', { length: 20 }),
-  alamat: text('alamat'),
-  tanggal_lahir: timestamp('tanggal_lahir').notNull(),
-  jenis_kelamin: varchar('jenis_kelamin', { length: 10 }).notNull(),
-  status_kepegawaian: varchar('status_kepegawaian', { length: 20 }).notNull(),
-  jabatan_saat_ini: varchar('jabatan_saat_ini', { length: 100 }),
-  unit_kerja: varchar('unit_kerja', { length: 100 }),
-  tmt_jabatan: timestamp('tmt_jabatan'), // Terhitung Mulai Tanggal jabatan
-  is_active: boolean('is_active').notNull().default(true),
+  nama_lengkap: text('nama_lengkap').notNull(),
+  nomor_hp: text('nomor_hp').notNull(),
+  npwp: text('npwp').notNull(),
+  pendidikan_terakhir: pendidikanEnum('pendidikan_terakhir').notNull(),
+  golongan_darah: golonganDarahEnum('golongan_darah').notNull(),
+  provinsi_id: text('provinsi_id').notNull(),
+  provinsi_nama: text('provinsi_nama').notNull(),
+  kota_id: text('kota_id').notNull(),
+  kota_nama: text('kota_nama').notNull(),
+  kecamatan_id: text('kecamatan_id').notNull(),
+  kecamatan_nama: text('kecamatan_nama').notNull(),
+  desa_id: text('desa_id').notNull(),
+  desa_nama: text('desa_nama').notNull(),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Riwayat Jabatan table
+// Job position history table
 export const riwayatJabatanTable = pgTable('riwayat_jabatan', {
   id: serial('id').primaryKey(),
-  pegawai_id: integer('pegawai_id').notNull().references(() => pegawaiTable.id, { onDelete: 'cascade' }),
-  jabatan: varchar('jabatan', { length: 100 }).notNull(),
-  unit_kerja: varchar('unit_kerja', { length: 100 }).notNull(),
-  tmt_jabatan: timestamp('tmt_jabatan').notNull(), // Terhitung Mulai Tanggal
-  tmt_berakhir: timestamp('tmt_berakhir'), // Nullable for current position
-  keterangan: text('keterangan'),
+  pegawai_id: integer('pegawai_id').notNull(),
+  satuan_kerja: text('satuan_kerja').notNull(),
+  unit_kerja: text('unit_kerja').notNull(),
+  jabatan_utama: text('jabatan_utama').notNull(),
+  jabatan_tambahan: text('jabatan_tambahan'),
+  tmt_jabatan: timestamp('tmt_jabatan').notNull(),
+  tmt_jabatan_tambahan: timestamp('tmt_jabatan_tambahan'),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Mutasi table
+// Mutation requests table
 export const mutasiTable = pgTable('mutasi', {
   id: serial('id').primaryKey(),
-  pegawai_id: integer('pegawai_id').notNull().references(() => pegawaiTable.id, { onDelete: 'cascade' }),
-  jabatan_baru: varchar('jabatan_baru', { length: 100 }).notNull(),
-  unit_kerja_baru: varchar('unit_kerja_baru', { length: 100 }).notNull(),
-  tanggal_efektif: timestamp('tanggal_efektif').notNull(),
-  alasan_mutasi: text('alasan_mutasi'),
+  pegawai_id: integer('pegawai_id').notNull(),
+  satuan_kerja_asal: text('satuan_kerja_asal').notNull(),
+  unit_kerja_asal: text('unit_kerja_asal').notNull(),
+  jabatan_asal: text('jabatan_asal').notNull(),
+  satuan_kerja_tujuan: text('satuan_kerja_tujuan').notNull(),
+  unit_kerja_tujuan: text('unit_kerja_tujuan').notNull(),
+  jabatan_tujuan: text('jabatan_tujuan').notNull(),
+  alasan: text('alasan').notNull(),
   status: statusMutasiEnum('status').notNull().default('pending'),
-  diajukan_oleh: integer('diajukan_oleh').notNull(), // User ID who submitted
-  disetujui_oleh: integer('disetujui_oleh'), // User ID who approved (nullable)
-  tanggal_disetujui: timestamp('tanggal_disetujui'),
-  catatan_persetujuan: text('catatan_persetujuan'),
+  tanggal_pengajuan: timestamp('tanggal_pengajuan').defaultNow().notNull(),
+  tanggal_persetujuan: timestamp('tanggal_persetujuan'),
+  catatan_admin: text('catatan_admin'),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Posisi Tersedia table
+// Available positions table
 export const posisiTersediaTable = pgTable('posisi_tersedia', {
   id: serial('id').primaryKey(),
-  nama_posisi: varchar('nama_posisi', { length: 100 }).notNull(),
-  unit_kerja: varchar('unit_kerja', { length: 100 }).notNull(),
-  deskripsi: text('deskripsi'),
-  persyaratan: text('persyaratan'),
-  is_available: boolean('is_available').notNull().default(true),
+  satuan_kerja: text('satuan_kerja').notNull(),
+  unit_kerja: text('unit_kerja').notNull(),
+  jabatan: text('jabatan').notNull(),
+  kuota_tersedia: integer('kuota_tersedia').notNull(),
+  persyaratan: text('persyaratan').notNull(),
+  is_active: boolean('is_active').notNull().default(true),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Relations
@@ -118,22 +115,6 @@ export const mutasiRelations = relations(mutasiTable, ({ one }) => ({
     references: [pegawaiTable.id],
   }),
 }));
-
-// TypeScript types for table schemas
-export type User = typeof usersTable.$inferSelect;
-export type NewUser = typeof usersTable.$inferInsert;
-
-export type Pegawai = typeof pegawaiTable.$inferSelect;
-export type NewPegawai = typeof pegawaiTable.$inferInsert;
-
-export type RiwayatJabatan = typeof riwayatJabatanTable.$inferSelect;
-export type NewRiwayatJabatan = typeof riwayatJabatanTable.$inferInsert;
-
-export type Mutasi = typeof mutasiTable.$inferSelect;
-export type NewMutasi = typeof mutasiTable.$inferInsert;
-
-export type PosisiTersedia = typeof posisiTersediaTable.$inferSelect;
-export type NewPosisiTersedia = typeof posisiTersediaTable.$inferInsert;
 
 // Export all tables and relations for proper query building
 export const tables = {

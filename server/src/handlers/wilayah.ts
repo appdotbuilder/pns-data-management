@@ -1,66 +1,109 @@
 
-import { z } from 'zod';
+import { type WilayahItem } from '../schema';
 
-// Define the WilayahItem type locally since it's not in schema.ts
-export const wilayahItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
+interface WilayahApiResponse {
+  data: Array<{
+    code: string | number;
+    name: string;
+  }>;
+}
 
-export type WilayahItem = z.infer<typeof wilayahItemSchema>;
-
-const BASE_URL = 'https://wilayah.id/api';
-
-async function fetchFromWilayahAPI(endpoint: string): Promise<WilayahItem[]> {
+export async function getProvinsi(): Promise<WilayahItem[]> {
   try {
-    const response = await fetch(`${BASE_URL}${endpoint}`);
+    const response = await fetch('https://wilayah.id/api/provinces.json');
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`Failed to fetch provinces: ${response.status} ${response.statusText}`);
     }
+
+    const data = await response.json() as WilayahApiResponse;
     
-    const data: unknown = await response.json();
-    
-    // Type guard to ensure data is an array
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid response format: expected array');
+    // Validate and transform the response data
+    if (!Array.isArray(data.data)) {
+      throw new Error('Invalid response format: expected data array');
     }
-    
-    // Transform the API response to match our WilayahItem interface
-    return data.map((item: any) => ({
-      id: item.code || item.id,
+
+    return data.data.map((item) => ({
+      id: String(item.code),
       name: item.name
     }));
   } catch (error) {
-    console.error(`Failed to fetch from wilayah API (${endpoint}):`, error);
+    console.error('Failed to fetch provinces:', error);
     throw error;
   }
 }
 
-export async function getProvinsi(): Promise<WilayahItem[]> {
-  return await fetchFromWilayahAPI('/provinces.json');
-}
-
 export async function getKotaByProvinsi(provinsiId: string): Promise<WilayahItem[]> {
-  if (!provinsiId || provinsiId.trim() === '') {
-    throw new Error('Province ID is required');
+  try {
+    const response = await fetch(`https://wilayah.id/api/regencies/${provinsiId}.json`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cities for province ${provinsiId}: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as WilayahApiResponse;
+    
+    // Validate and transform the response data
+    if (!Array.isArray(data.data)) {
+      throw new Error('Invalid response format: expected data array');
+    }
+
+    return data.data.map((item) => ({
+      id: String(item.code),
+      name: item.name
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch cities for province ${provinsiId}:`, error);
+    throw error;
   }
-  
-  return await fetchFromWilayahAPI(`/regencies/${provinsiId}.json`);
 }
 
 export async function getKecamatanByKota(kotaId: string): Promise<WilayahItem[]> {
-  if (!kotaId || kotaId.trim() === '') {
-    throw new Error('City ID is required');
+  try {
+    const response = await fetch(`https://wilayah.id/api/districts/${kotaId}.json`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch districts for city ${kotaId}: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as WilayahApiResponse;
+    
+    // Validate and transform the response data
+    if (!Array.isArray(data.data)) {
+      throw new Error('Invalid response format: expected data array');
+    }
+
+    return data.data.map((item) => ({
+      id: String(item.code),
+      name: item.name
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch districts for city ${kotaId}:`, error);
+    throw error;
   }
-  
-  return await fetchFromWilayahAPI(`/districts/${kotaId}.json`);
 }
 
 export async function getDesaByKecamatan(kecamatanId: string): Promise<WilayahItem[]> {
-  if (!kecamatanId || kecamatanId.trim() === '') {
-    throw new Error('District ID is required');
+  try {
+    const response = await fetch(`https://wilayah.id/api/villages/${kecamatanId}.json`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch villages for district ${kecamatanId}: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as WilayahApiResponse;
+    
+    // Validate and transform the response data
+    if (!Array.isArray(data.data)) {
+      throw new Error('Invalid response format: expected data array');
+    }
+
+    return data.data.map((item) => ({
+      id: String(item.code),
+      name: item.name
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch villages for district ${kecamatanId}:`, error);
+    throw error;
   }
-  
-  return await fetchFromWilayahAPI(`/villages/${kecamatanId}.json`);
 }

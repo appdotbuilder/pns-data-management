@@ -1,36 +1,29 @@
 
+import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { usersTable } from '../db/schema';
-import { type User } from '../schema';
-import { eq } from 'drizzle-orm';
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { type LoginInput, type LoginResponse, type User } from '../schema';
 
-// Simple JWT-like token implementation using Node.js crypto
-function createToken(payload: any): string {
-  const header = Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'HS256' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + 24 * 60 * 60 * 1000 })).toString('base64url');
-  const signature = createHash('sha256').update(`${header}.${body}.secret`).digest('base64url');
-  return `${header}.${body}.${signature}`;
-}
+// Simple password hashing using Bun's built-in crypto
+const hashPassword = async (password: string): Promise<string> => {
+  return await Bun.password.hash(password);
+};
 
-function hashPassword(password: string, salt: string): string {
-  return createHash('sha256').update(password + salt).digest('hex');
-}
+const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
+  return await Bun.password.verify(password, hashedPassword);
+};
 
-function verifyPassword(password: string, hashedPassword: string, salt: string): boolean {
-  const hash = hashPassword(password, salt);
-  return timingSafeEqual(Buffer.from(hash), Buffer.from(hashedPassword));
-}
-
-export interface LoginInput {
-  username: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  user: User;
-  token: string;
-}
+// Simple JWT token generation (in production, use proper JWT library)
+const generateToken = (userId: number, role: string): string => {
+  const payload = {
+    userId,
+    role,
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+  };
+  
+  // In production, use proper JWT signing with secret key
+  return btoa(JSON.stringify(payload));
+};
 
 export async function login(input: LoginInput): Promise<LoginResponse> {
   try {
@@ -41,49 +34,30 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
       .execute();
 
     if (users.length === 0) {
-      throw new Error('Invalid credentials');
+      throw new Error('Invalid username or password');
     }
 
     const user = users[0];
 
-    // Check password - support both salted and simple hash formats
-    let isValidPassword = false;
-    
-    if (user.password_hash.includes(':')) {
-      // Salted hash format: "hash:salt"
-      const [storedHash, salt] = user.password_hash.split(':');
-      isValidPassword = verifyPassword(input.password, storedHash, salt);
-    } else {
-      // Simple hash format (legacy)
-      const simpleHash = createHash('sha256').update(input.password).digest('hex');
-      isValidPassword = simpleHash === user.password_hash;
-    }
-
+    // Verify password
+    const isValidPassword = await verifyPassword(input.password, user.password);
     if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+      throw new Error('Invalid username or password');
     }
 
     // Generate token
-    const token = createToken({
-      userId: user.id,
-      username: user.username,
-      role: user.role
-    });
+    const token = generateToken(user.id, user.role);
 
-    // Return user data
-    const userResponse: User = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      password_hash: user.password_hash,
-      role: user.role,
-      pegawai_id: user.pegawai_id,
-      created_at: user.created_at,
-      updated_at: user.updated_at
-    };
-
+    // Return user data without password and token
     return {
-      user: userResponse,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        pegawai_id: user.pegawai_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      },
       token
     };
   } catch (error) {
@@ -104,27 +78,36 @@ export async function getCurrentUser(userId: number): Promise<User> {
       throw new Error('User not found');
     }
 
-    const user = users[0];
-
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      password_hash: user.password_hash,
-      role: user.role,
-      pegawai_id: user.pegawai_id,
-      created_at: user.created_at,
-      updated_at: user.updated_at
-    };
+    return users[0];
   } catch (error) {
     console.error('Get current user failed:', error);
     throw error;
   }
 }
 
-// Helper function to create password hash with salt for testing
-export function createPasswordHash(password: string): string {
-  const salt = randomBytes(16).toString('hex');
-  const hash = hashPassword(password, salt);
-  return `${hash}:${salt}`;
+// Helper function for creating users (useful for testing and admin operations)
+export async function createUser(
+  username: string,
+  password: string,
+  role: 'admin' | 'pegawai',
+  pegawai_id?: number | null
+): Promise<User> {
+  try {
+    const hashedPassword = await hashPassword(password);
+
+    const result = await db.insert(usersTable)
+      .values({
+        username,
+        password: hashedPassword,
+        role,
+        pegawai_id: pegawai_id || null
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Create user failed:', error);
+    throw error;
+  }
 }
